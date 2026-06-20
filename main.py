@@ -5,9 +5,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import Column, Float, DateTime
 from sqlalchemy.orm import Session
-from db import engine, CandidateProfile, init_db, Base
+from db import engine, CandidateProfile, init_db
 from ingestion import build_profile_summary
 from graph import build_graph, CandidateState
 
@@ -21,16 +20,18 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "https://*.vercel.app",
+        "https://autoeval.vercel.app",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
 
 init_db()
 
-# ─────────────────────────────────────────
-# Request / Response models
-# ─────────────────────────────────────────
 class EvaluateRequest(BaseModel):
     username: str
 
@@ -41,26 +42,11 @@ class EvaluateResponse(BaseModel):
     final_scores: dict
     conflicts   : list
     status      : str
-    cache_hit   : bool   # ← new — tells frontend if result was cached
+    cache_hit   : bool
 
-# ─────────────────────────────────────────
-# In-memory results store
-# ─────────────────────────────────────────
 results_store = {}
 
-# ─────────────────────────────────────────
-# Smart cache — detect if profile changed
-# ─────────────────────────────────────────
 def profile_changed(existing: CandidateProfile, new_summary: dict) -> bool:
-    """
-    Returns True if GitHub profile changed significantly
-    since last evaluation — justifies a fresh LLM scoring run.
-    
-    Three signals we check:
-    1. New repo added
-    2. Commit count changed by more than 5
-    3. New programming language detected
-    """
     repo_changed    = existing.public_repos != new_summary["public_repos"]
     commits_changed = abs(existing.recent_commits - new_summary["recent_commits"]) > 5
     lang_changed    = set(existing.languages or []) != set(new_summary["languages"])
@@ -75,15 +61,11 @@ def profile_changed(existing: CandidateProfile, new_summary: dict) -> bool:
     return repo_changed or commits_changed or lang_changed
 
 def get_cached_result(username: str) -> dict | None:
-    """Look up existing result in memory store"""
     for r in results_store.values():
         if r["username"] == username:
             return r
     return None
 
-# ─────────────────────────────────────────
-# Endpoints
-# ─────────────────────────────────────────
 @app.get("/")
 def health_check():
     return {
@@ -97,7 +79,6 @@ def evaluate_candidate(request: EvaluateRequest):
     username = request.username.strip()
     print(f"\n📥 Received evaluation request for: {username}")
 
-    # Step 1 — fetch fresh GitHub data
     try:
         summary = build_profile_summary(username)
     except Exception as e:
@@ -106,29 +87,25 @@ def evaluate_candidate(request: EvaluateRequest):
             detail=f"Could not fetch GitHub profile for '{username}': {str(e)}"
         )
 
-    # Step 2 — check if profile already exists in DB
     with Session(engine) as session:
         existing = session.query(CandidateProfile)\
             .filter_by(username=username).first()
 
         if existing:
             changed = profile_changed(existing, summary)
-
             if not changed:
-                # profile unchanged → return cached result
                 cached = get_cached_result(username)
                 if cached:
-                    print(f"✅ Cache hit — profile unchanged, returning stored score: {cached['composite']}/100")
+                    print(f"✅ Cache hit — returning stored score: {cached['composite']}/100")
                     cached["cache_hit"] = True
                     return cached
                 else:
-                    print(f"⚠️  Profile unchanged but no cached result — re-evaluating")
+                    print(f"⚠️  Profile unchanged but no cache — re-evaluating")
             else:
                 print(f"🔄 Profile changed — running fresh evaluation")
         else:
             print(f"🆕 New candidate — running first evaluation")
 
-    # Step 3 — run LangGraph scoring pipeline
     try:
         pipeline = build_graph()
         initial_state = CandidateState(
@@ -147,14 +124,12 @@ def evaluate_candidate(request: EvaluateRequest):
             detail=f"Scoring pipeline failed: {str(e)}"
         )
 
-    # Step 4 — save updated profile to PostgreSQL
     try:
         with Session(engine) as session:
             existing = session.query(CandidateProfile)\
                 .filter_by(username=username).first()
 
             if existing:
-                # update existing row with fresh data
                 existing.public_repos     = summary["public_repos"]
                 existing.followers        = summary["followers"]
                 existing.languages        = summary["languages"]
@@ -166,7 +141,6 @@ def evaluate_candidate(request: EvaluateRequest):
                 session.commit()
                 print(f"✅ Updated existing profile for {username}")
             else:
-                # insert new row
                 profile = CandidateProfile(
                     username         = summary["username"],
                     name             = summary["name"],
@@ -185,8 +159,6 @@ def evaluate_candidate(request: EvaluateRequest):
     except Exception as e:
         print(f"⚠️ DB save warning: {e}")
 
-    # Step 5 — store result in memory
-    # remove old result for this username if exists
     for result_id, r in list(results_store.items()):
         if r["username"] == username:
             del results_store[result_id]
@@ -238,7 +210,6 @@ def get_leaderboard():
 
 @app.get("/cache/status")
 def cache_status():
-    """Shows what's currently cached — useful for debugging"""
     return {
         "cached_results": len(results_store),
         "usernames": [r["username"] for r in results_store.values()]
