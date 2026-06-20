@@ -24,6 +24,8 @@ app.add_middleware(
         "http://localhost:5173",
         "https://*.vercel.app",
         "https://autoeval.vercel.app",
+        "https://*.onrender.com",        # ← add this
+        "https://autoeval-frontend.onrender.com",  # ← add your exact URL
     ],
     allow_methods=["*"],
     allow_headers=["*"],
