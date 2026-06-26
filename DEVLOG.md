@@ -133,3 +133,30 @@
 - Write docker-compose.yml (api + worker + redis + postgres)
 - Test full stack locally with docker-compose up
 - Then deploy: Railway (backend) + Vercel (frontend)
+
+
+## Day 7 — June 20, 2026
+
+### What I built
+- Pushed code to GitHub (public repo)
+- Deployed FastAPI backend to Railway
+- Added PostgreSQL on Railway (cloud database)
+- Deployed React frontend to Render
+- Fixed CORS for production URLs
+- Fixed API_URL fallback to Railway instead of localhost
+
+### What I learned
+- git init, add, commit, push workflow
+- Railway deployment — Dockerfile auto-detected
+- DATABASE_URL difference: localhost vs cloud hostname
+- CORS must include production frontend URL
+- VITE_API_URL env variable must be set on Render
+- LF vs CRLF warning — harmless on Windows
+
+### Output achieved
+- Live API: https://autoeval-production.up.railway.app
+- Live App: https://autoeval-frontend.onrender.com
+- Full end-to-end working on public internet
+- Anyone can evaluate any GitHub profile
+
+### Intern complete ✅

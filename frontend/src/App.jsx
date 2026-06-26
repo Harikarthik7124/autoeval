@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import {
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  RadarChart, PolarGrid, PolarAngleAxis,
   Radar, ResponsiveContainer, Tooltip
 } from 'recharts'
 import './App.css'
@@ -21,26 +21,38 @@ const RUBRIC_LABELS = {
 
 const RUBRIC_COLORS = {
   code_quality: '#9B93F5',
-  commit_hygiene: '#5FE596',
-  documentation: '#4DC9FF',
-  stack_breadth: '#FFB84D',
-  project_complexity: '#FF7A5C',
-  recency: '#5FE5C4',
-  oss_contributions: '#FF8FCB',
-  ai_ml_presence: '#C9A8FF'
+  commit_hygiene: '#4ADE80',
+  documentation: '#38BDF8',
+  stack_breadth: '#FB923C',
+  project_complexity: '#F87171',
+  recency: '#34D399',
+  oss_contributions: '#F472B6',
+  ai_ml_presence: '#C084FC'
+}
+
+const SHORT_LABELS = {
+  code_quality: 'Code',
+  commit_hygiene: 'Commits',
+  documentation: 'Docs',
+  stack_breadth: 'Stack',
+  project_complexity: 'Complexity',
+  recency: 'Recency',
+  oss_contributions: 'OSS',
+  ai_ml_presence: 'AI/ML'
 }
 
 function formatRadarData(finalScores) {
   return Object.entries(finalScores).map(([key, score]) => ({
-    key: key,
-    rubric: RUBRIC_LABELS[key] || key,
-    score: score
+    key,
+    rubric: SHORT_LABELS[key] || key,
+    fullName: RUBRIC_LABELS[key] || key,
+    score
   }))
 }
 
 function gradeLabel(composite) {
   if (composite >= 75) return { text: 'Strong hire signal', tone: 'strong' }
-  if (composite >= 50) return { text: 'Promising, needs review', tone: 'moderate' }
+  if (composite >= 50) return { text: 'Promising — needs review', tone: 'moderate' }
   return { text: 'Early-stage profile', tone: 'weak' }
 }
 
@@ -49,49 +61,58 @@ function CustomTooltip({ active, payload }) {
   const point = payload[0].payload
   return (
     <div className="chart-tooltip">
-      <span className="tooltip-dot" style={{ background: RUBRIC_COLORS[point.key] }} />
-      <span className="tooltip-label">{point.rubric}</span>
-      <span className="tooltip-value">{payload[0].value.toFixed(1)}/10</span>
+      <div className="tooltip-dot" style={{ background: RUBRIC_COLORS[point.key] }} />
+      <div>
+        <div className="tooltip-label">{point.fullName}</div>
+        <div className="tooltip-value">{payload[0].value.toFixed(1)} / 10</div>
+      </div>
     </div>
   )
 }
 
-function RadarDot(props) {
+function CustomDot(props) {
   const { cx, cy, payload } = props
+  if (!cx || !cy) return null
   return (
     <circle
-      cx={cx}
-      cy={cy}
-      r={5}
+      cx={cx} cy={cy} r={5}
       fill={RUBRIC_COLORS[payload.key]}
-      stroke="#161821"
+      stroke="#0B0D12"
       strokeWidth={2}
     />
   )
 }
 
-function App() {
+function ScoreBar({ label, score, color }) {
+  return (
+    <div className="score-row">
+      <div className="score-dot" style={{ background: color }} />
+      <span className="score-label">{label}</span>
+      <div className="score-track">
+        <div
+          className="score-fill"
+          style={{ width: `${score * 10}%`, background: color }}
+        />
+      </div>
+      <span className="score-num">{score.toFixed(1)}</span>
+    </div>
+  )
+}
+
+export default function App() {
   const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
-  const [hoveredRubric, setHoveredRubric] = useState(null)
 
-  const handleEvaluate = async () => {
-    if (!username.trim()) {
-      setError('Enter a GitHub username to get started')
-      return
-    }
-    setLoading(true)
-    setError('')
-    setResult(null)
+  async function handleEvaluate() {
+    if (!username.trim()) { setError('Enter a GitHub username'); return }
+    setLoading(true); setError(''); setResult(null)
     try {
-      const response = await axios.post(`${API_URL}/evaluate`, {
-        username: username.trim()
-      })
-      setResult(response.data)
-    } catch (err) {
-      setError(err.response?.data?.detail || "Couldn't complete that scan — check the username and try again")
+      const res = await axios.post(`${API_URL}/evaluate`, { username: username.trim() })
+      setResult(res.data)
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Could not complete scan — try again')
     } finally {
       setLoading(false)
     }
@@ -103,150 +124,132 @@ function App() {
     <div className="shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-icon">A</div>
+          <div className="brand-icon">AE</div>
           <span className="brand-name">AutoEval</span>
         </div>
-        <span className="brand-meta">Powered by dual-model consensus scoring</span>
+        <span className="topbar-tag">Dual-model consensus scoring</span>
       </header>
 
       <main className="stage">
-        <section className={`hero ${result ? 'hero-compact' : ''}`}>
-          {!result && (
-            <>
-              <h1 className="hero-title">Evaluate any developer profile</h1>
-              <p className="hero-subtitle">Enter a GitHub username and get an instant, rubric-based assessment</p>
-            </>
-          )}
+        {!result && (
+          <div className="hero">
+            <div className="hero-badge">AI-powered · GitHub analysis · 8 rubrics</div>
+            <h1 className="hero-title">Evaluate any developer<br />GitHub profile instantly</h1>
+            <p className="hero-sub">Enter a username and get a detailed rubric-based assessment powered by two LLMs in consensus</p>
+          </div>
+        )}
 
+        <div className={`search-wrap ${result ? 'search-compact' : ''}`}>
           <div className="search-bar">
-            <i className="ti ti-brand-github search-icon" aria-hidden="true"></i>
+            <i className="ti ti-brand-github search-icon" aria-hidden="true" />
             <input
               className="search-input"
-              type="text"
-              placeholder="Enter a GitHub username, e.g. octocat"
+              placeholder="Enter GitHub username, e.g. torvalds"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleEvaluate()}
+              onChange={e => setUsername(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleEvaluate()}
               spellCheck="false"
             />
             <button className="search-btn" onClick={handleEvaluate} disabled={loading}>
-              {loading ? (
-                <span className="btn-spinner" />
-              ) : (
-                <>Evaluate <i className="ti ti-arrow-right" aria-hidden="true"></i></>
-              )}
+              {loading ? <span className="spinner" /> : 'Evaluate'}
             </button>
           </div>
-          {error && (
-            <p className="search-error"><i className="ti ti-alert-circle" aria-hidden="true"></i>{error}</p>
-          )}
-        </section>
+          {error && <p className="search-error"><i className="ti ti-alert-circle" /> {error}</p>}
+        </div>
 
         {loading && (
-          <section className="loading-panel">
+          <div className="loading-wrap">
+            <div className="loading-bar" />
             <div className="loading-steps">
-              <span className="loading-step active">Fetching GitHub profile</span>
-              <span className="loading-step active">Scoring with two models</span>
-              <span className="loading-step active">Resolving consensus</span>
+              <div className="loading-step"><span className="step-spin" />Fetching GitHub profile</div>
+              <div className="loading-step"><span className="step-spin" />Running dual-model scoring</div>
+              <div className="loading-step"><span className="step-spin" />Calculating consensus</div>
             </div>
-          </section>
+          </div>
         )}
 
         {result && !loading && (
-          <section className="results">
-            <div className="result-summary">
+          <div className="results">
+            <div className="summary-card">
               <div className="summary-left">
-                <div className="avatar-circle">
-                  {result.username.slice(0, 2).toUpperCase()}
-                </div>
+                <div className="avatar">{result.username.slice(0, 2).toUpperCase()}</div>
                 <div>
                   <h2 className="summary-name">{result.username}</h2>
-                  <span className={`grade-pill grade-${grade.tone}`}>{grade.text}</span>
+                  <span className={`grade grade-${grade.tone}`}>{grade.text}</span>
                 </div>
               </div>
               <div className="summary-score">
-                <span className="score-num">{Math.round(result.composite)}</span>
+                <span className="score-big">{Math.round(result.composite)}</span>
                 <span className="score-denom">/ 100</span>
               </div>
             </div>
 
-            <div className="grid">
-              <div className="card chart-card">
-                <div className="card-header">
-                  <h3 className="card-title">Rubric profile</h3>
-                  <span className="card-hint">Hover the chart for exact scores</span>
+            <div className="results-grid">
+              <div className="card">
+                <div className="card-head">
+                  <span className="card-title">Rubric profile</span>
+                  <span className="card-hint">Hover for exact scores</span>
                 </div>
-                <ResponsiveContainer width="100%" height={360}>
+                <ResponsiveContainer width="100%" height={420}>
                   <RadarChart
                     data={formatRadarData(result.final_scores)}
-                    margin={{ top: 24, right: 60, bottom: 10, left: 60 }}
+                    margin={{ top: 30, right: 50, bottom: 30, left: 50 }}
                   >
-                    <PolarGrid stroke="var(--border)" />
+                    <PolarGrid stroke="rgba(255,255,255,0.08)" />
                     <PolarAngleAxis
                       dataKey="rubric"
-                      tick={{ fill: '#C7C9D1', fontSize: 11 }}
+                      tick={{ fill: '#C4C5CC', fontSize: 12, fontFamily: 'Inter, sans-serif' }}
+                      tickLine={false}
                     />
-                    <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fontSize: 10, fill: '#8B8D98' }} />
                     <Tooltip content={<CustomTooltip />} />
                     <Radar
                       dataKey="score"
                       stroke="#9B93F5"
                       fill="#9B93F5"
-                      fillOpacity={0.22}
+                      fillOpacity={0.2}
                       strokeWidth={2}
-                      animationDuration={600}
-                      dot={<RadarDot />}
+                      dot={<CustomDot />}
                     />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
 
-              <div className="card list-card">
-                <div className="card-header">
-                  <h3 className="card-title">Score breakdown</h3>
+              <div className="card">
+                <div className="card-head">
+                  <span className="card-title">Score breakdown</span>
                 </div>
-                <ul className="rubric-list">
+                <div className="score-list">
                   {Object.entries(result.final_scores).map(([key, score]) => (
-                    <li
+                    <ScoreBar
                       key={key}
-                      className={`rubric-row ${hoveredRubric === key ? 'rubric-hover' : ''}`}
-                      onMouseEnter={() => setHoveredRubric(key)}
-                      onMouseLeave={() => setHoveredRubric(null)}
-                    >
-                      <span className="rubric-dot" style={{ background: RUBRIC_COLORS[key] }} />
-                      <span className="rubric-name">{RUBRIC_LABELS[key] || key}</span>
-                      <div className="rubric-bar-track">
-                        <div
-                          className="rubric-bar-fill"
-                          style={{ width: `${score * 10}%`, background: RUBRIC_COLORS[key] }}
-                        />
-                      </div>
-                      <span className="rubric-score">{score.toFixed(1)}</span>
-                    </li>
+                      label={RUBRIC_LABELS[key]}
+                      score={score}
+                      color={RUBRIC_COLORS[key]}
+                    />
                   ))}
-                </ul>
+                </div>
               </div>
             </div>
 
-            {result.conflicts.length > 0 && (
+            {result.conflicts?.length > 0 && (
               <details className="conflicts-card">
                 <summary className="conflicts-summary">
-                  <i className="ti ti-git-compare" aria-hidden="true"></i>
+                  <i className="ti ti-alert-triangle" aria-hidden="true" />
                   {result.conflicts.length} model disagreement{result.conflicts.length > 1 ? 's' : ''} detected
-                  <i className="ti ti-chevron-down chevron" aria-hidden="true"></i>
+                  <i className="ti ti-chevron-down conflicts-chevron" aria-hidden="true" />
                 </summary>
-                <p className="conflicts-sub">These rubrics had a score gap greater than 1.5 between the two models — worth a manual look.</p>
-                <div className="conflict-grid">
+                <p className="conflicts-desc">Score gap &gt;1.5 points between models — manual review suggested</p>
+                <div className="conflicts-grid">
                   {result.conflicts.map((c, i) => (
                     <div className="conflict-item" key={i}>
-                      <span className="conflict-name">
-                        <span className="rubric-dot" style={{ background: RUBRIC_COLORS[c.rubric] }} />
-                        {RUBRIC_LABELS[c.rubric] || c.rubric}
-                      </span>
-                      <div className="conflict-vals">
-                        <span>70B · {c.llama70.toFixed(1)}</span>
-                        <span className="conflict-delta">Δ {c.delta.toFixed(1)}</span>
-                        <span>8B · {c.llama8.toFixed(1)}</span>
+                      <div className="conflict-dot" style={{ background: RUBRIC_COLORS[c.rubric] }} />
+                      <div>
+                        <div className="conflict-name">{RUBRIC_LABELS[c.rubric] || c.rubric}</div>
+                        <div className="conflict-vals">
+                          <span>70B · {c.llama70.toFixed(1)}</span>
+                          <span className="conflict-delta">Δ {c.delta.toFixed(1)}</span>
+                          <span>8B · {c.llama8.toFixed(1)}</span>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -255,13 +258,31 @@ function App() {
             )}
 
             <button className="reset-btn" onClick={() => { setResult(null); setUsername('') }}>
-              <i className="ti ti-refresh" aria-hidden="true"></i> Run another scan
+              <i className="ti ti-refresh" aria-hidden="true" /> Evaluate another profile
             </button>
-          </section>
+          </div>
+        )}
+
+        {!result && !loading && (
+          <div className="feature-grid">
+            <div className="feature-card">
+              <i className="ti ti-brand-github feature-icon" aria-hidden="true" />
+              <div className="feature-title">GitHub analysis</div>
+              <div className="feature-desc">Fetches repos, commits, READMEs, languages and contribution patterns</div>
+            </div>
+            <div className="feature-card">
+              <i className="ti ti-robot feature-icon" aria-hidden="true" />
+              <div className="feature-title">Dual LLM scoring</div>
+              <div className="feature-desc">Two models score independently — consensus layer resolves disagreements</div>
+            </div>
+            <div className="feature-card">
+              <i className="ti ti-chart-radar feature-icon" aria-hidden="true" />
+              <div className="feature-title">8 rubric axes</div>
+              <div className="feature-desc">Code quality, commits, docs, stack breadth, complexity, recency and more</div>
+            </div>
+          </div>
         )}
       </main>
     </div>
   )
 }
-
-export default App
