@@ -21,6 +21,16 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Debug — check DATABASE_URL is set
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "❌ DATABASE_URL is EMPTY — secret not set correctly"
+          else
+            echo "✅ DATABASE_URL is set — starts with: ${DATABASE_URL:0:30}..."
+          fi
+
       - name: Run refresh script
         env:
           GH_TOKEN_PAT: ${{ secrets.GH_TOKEN_PAT }}
