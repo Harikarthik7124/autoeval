@@ -5,8 +5,8 @@ from sqlalchemy.orm import declarative_base, Session
 from pgvector.sqlalchemy import Vector
 from sentence_transformers import SentenceTransformer
 
-load_dotenv()
-
+# NEW — environment variables take priority over .env file
+load_dotenv(override=False)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 engine = create_engine(DATABASE_URL)

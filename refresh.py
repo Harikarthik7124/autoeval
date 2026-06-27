@@ -6,7 +6,7 @@ from db import engine, CandidateProfile, init_db
 from ingestion import build_profile_summary
 from graph import build_graph, CandidateState
 
-load_dotenv()
+load_dotenv(override=False)
 
 def profile_changed(existing: CandidateProfile, new_summary: dict) -> bool:
     repo_changed    = existing.public_repos != new_summary["public_repos"]
