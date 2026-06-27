@@ -1,0 +1,29 @@
+name: Nightly candidate refresh
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run refresh script
+        env:
+          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_TOKEN_PAT }}
+          GROQ_API_KEY:     ${{ secrets.GROQ_API_KEY }}
+          DATABASE_URL:     ${{ secrets.DATABASE_URL }}
+        run: python refresh.py
