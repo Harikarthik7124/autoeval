@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_TOKEN = os.getenv("GH_TOKEN_PAT") or os.getenv("GITHUB_TOKEN")
 
 HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",
