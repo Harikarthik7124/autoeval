@@ -11,24 +11,32 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5.6.0
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Verify psycopg installation
+        run: |
+          python -m pip show psycopg
+          python -c "import psycopg; print('psycopg version:', psycopg.__version__)"
 
       - name: Debug — check DATABASE_URL is set
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "❌ DATABASE_URL is EMPTY"
+            echo "DATABASE_URL is EMPTY"
+            exit 1
           else
-            echo "✅ DATABASE_URL is set"
+            echo "DATABASE_URL is set"
           fi
 
       - name: Run refresh script
